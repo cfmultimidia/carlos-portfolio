@@ -110,6 +110,60 @@ export default function Home() {
                 </div>
               </div>
             </a>
+
+            {/* Divider */}
+            <div className="w-full h-px bg-[#e8e8e8] my-6" />
+
+            {/* Premmia Card */}
+            <a
+              href="/premmia"
+              className="group block w-full py-6"
+            >
+              <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
+                {/* Left: text */}
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-[22px] md:text-[26px] font-medium leading-[1.2] lowercase group-hover:opacity-70 transition-opacity">
+                        premmia app
+                      </h2>
+                      <ArrowUpRight
+                        size={22}
+                        className="opacity-0 group-hover:opacity-100 transition-all duration-200 -translate-x-1 group-hover:translate-x-0 -translate-y-1 group-hover:translate-y-0"
+                      />
+                    </div>
+                    <p className="text-[16px] md:text-[18px] leading-[1.55] text-[#444] max-w-[420px]">
+                      Redesigning Petrobras's loyalty app, elevating the user experience for millions of station customers across Brazil.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-8 mt-2">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[13px] leading-[1.5] text-[#999] lowercase">company</span>
+                      <span className="text-[16px] leading-[1.5] lowercase">Petrobras / BR</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[13px] leading-[1.5] text-[#999] lowercase">role</span>
+                      <span className="text-[16px] leading-[1.5] lowercase">Senior Product Designer</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[13px] leading-[1.5] text-[#999] lowercase">year</span>
+                      <span className="text-[16px] leading-[1.5] lowercase">2024</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: image */}
+                <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden bg-[#006633] border border-[#eceef4] group-hover:scale-[1.01] transition-transform duration-500 flex items-center justify-center">
+                  <img
+                    src="/premmia/KVIO9Gcs8hyaggyu.webp"
+                    alt="Premmia App interface"
+                    className="h-full object-cover object-top"
+                  />
+                </div>
+              </div>
+            </a>
+
           </section>
         </div>
       </main>
