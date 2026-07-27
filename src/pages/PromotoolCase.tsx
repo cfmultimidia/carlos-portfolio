@@ -63,7 +63,7 @@ export default function PromotoolCase() {
           <div className="w-full max-w-[1400px] px-6 pb-20">
             <header className="w-full grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-8 px-[0px] pt-[96px] pb-[48px]">
               <h1 className="min-w-0 text-left font-semibold text-[clamp(44px,7.5vw,56px)] leading-[1.14] tracking-[-0.02em] lowercase">
-                Promotool App
+                Promotool AI
               </h1>
               <div className="flex flex-wrap gap-x-[46px] gap-y-5 justify-start lg:justify-end lowercase">
                 <div className="flex min-w-[112px] flex-col gap-1">
@@ -87,8 +87,8 @@ export default function PromotoolCase() {
               <section className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 py-12 items-start">
                 <h2 className="text-[24px] leading-[1.44] lowercase">Context</h2>
                 <div className="flex flex-col gap-2 text-[18px] leading-[1.5]">
-                  <p>Promotool began with a clear product challenge: make a complex, important workflow feel simple, trustworthy and easy to use.</p>
-                  <p>I worked across product definition, UX and interface design to translate early requirements into a coherent product experience.</p>
+                  <p>Promotool AI began with a clear product challenge: integrate artificial intelligence to make a complex, important workflow feel simple, trustworthy and easy to use.</p>
+                  <p>I worked across product definition, UX and interface design to translate early requirements into a coherent AI-driven product experience.</p>
                 </div>
               </section>
 
@@ -101,8 +101,8 @@ export default function PromotoolCase() {
               <section className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 py-12 items-start">
                 <h2 className="text-[24px] leading-[1.44] lowercase">Opportunity</h2>
                 <div className="flex flex-col gap-2 text-[18px] leading-[1.5]">
-                  <p>The opportunity was to reduce friction without flattening the nuance of the product. Businesses needed a single place to manage promotional plans, historical context, and financial forecasts.</p>
-                  <p>The design needed to feel calm and direct while giving users enough structure to act confidently.</p>
+                  <p>The opportunity was to reduce friction without flattening the nuance of the product. Businesses needed a single place to manage promotional plans, historical context, and financial forecasts, leveraging AI for intelligent insights.</p>
+                  <p>The design needed to feel calm and direct while giving users enough structure to act confidently on AI recommendations.</p>
                 </div>
               </section>
 

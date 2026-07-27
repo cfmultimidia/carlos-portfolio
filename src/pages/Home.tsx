@@ -72,7 +72,7 @@ export default function Home() {
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                       <h2 className="text-[22px] md:text-[26px] font-medium leading-[1.2] lowercase group-hover:opacity-70 transition-opacity">
-                        promotool app
+                        promotool AI
                       </h2>
                       <ArrowUpRight
                         size={22}
@@ -80,7 +80,7 @@ export default function Home() {
                       />
                     </div>
                     <p className="text-[16px] md:text-[18px] leading-[1.55] text-[#444] max-w-[420px]">
-                      Designing a promotional campaign management platform that helps B2B teams plan, forecast and execute promotional strategies.
+                      Designing an AI-powered promotional campaign management platform that helps B2B teams plan, forecast and execute strategies with intelligent insights.
                     </p>
                   </div>
 
