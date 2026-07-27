@@ -154,11 +154,11 @@ export default function Home() {
                 </div>
 
                 {/* Right: image */}
-                <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden bg-[#006633] border border-[#eceef4] group-hover:scale-[1.01] transition-transform duration-500 flex items-center justify-center">
+                <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden bg-[#1a5c35] border border-[#eceef4] group-hover:scale-[1.01] transition-transform duration-500">
                   <img
-                    src="/premmia/KVIO9Gcs8hyaggyu.webp"
+                    src="/premmia/capa.png"
                     alt="Premmia App interface"
-                    className="h-full object-cover object-top"
+                    className="w-full h-full object-cover object-center"
                   />
                 </div>
               </div>
