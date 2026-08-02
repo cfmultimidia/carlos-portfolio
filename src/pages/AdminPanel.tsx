@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Download, RotateCcw, X, Check, ChevronUp, ChevronDown, Lock, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Download, RotateCcw, X, Check, ChevronUp, ChevronDown, Lock, Eye, EyeOff, Copy } from 'lucide-react';
 import { loadProjects, saveProjects, resetProjects, exportProjectsJSON, defaultProjects, type Project, type Section } from '../data/projects';
 
 // ─── Admin password ───────────────────────────────────────────────────────────
@@ -470,6 +470,16 @@ export default function AdminPanel() {
     persist(projects.filter(p => p.slug !== slug));
   };
 
+  const handleDuplicate = (projectToCopy: Project) => {
+    const duplicated: Project = {
+      ...projectToCopy,
+      slug: `${projectToCopy.slug}-copy`,
+      title: `${projectToCopy.title} (Copy)`,
+      sections: JSON.parse(JSON.stringify(projectToCopy.sections)), // Deep copy sections
+    };
+    persist([...projects, duplicated]);
+  };
+
   const handleReset = () => {
     if (!confirm('Reset to defaults? All your changes will be lost.')) return;
     resetProjects();
@@ -536,10 +546,13 @@ export default function AdminPanel() {
                 <a href={`/${project.slug}`} target="_blank" rel="noopener noreferrer" className="p-2 text-[#aaa] hover:text-[#111] transition-colors">
                   <Eye size={15} />
                 </a>
-                <button onClick={() => { setEditing(project); setIsNew(false); }} className="p-2 text-[#aaa] hover:text-[#111] transition-colors">
+                <button onClick={() => { setEditing(project); setIsNew(false); }} className="p-2 text-[#aaa] hover:text-[#111] transition-colors" title="Edit">
                   <Pencil size={15} />
                 </button>
-                <button onClick={() => handleDelete(project.slug)} className="p-2 text-[#aaa] hover:text-red-500 transition-colors">
+                <button onClick={() => handleDuplicate(project)} className="p-2 text-[#aaa] hover:text-[#111] transition-colors" title="Duplicate">
+                  <Copy size={15} />
+                </button>
+                <button onClick={() => handleDelete(project.slug)} className="p-2 text-[#aaa] hover:text-red-500 transition-colors" title="Delete">
                   <Trash2 size={15} />
                 </button>
               </div>
