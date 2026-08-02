@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Play, ExternalLink } from 'lucide-react';
-import { loadProjects, type Project } from '../data/projects';
+import { fetchProject } from '../lib/api';
+import type { Project } from '../data/projects';
 import PasswordGate from '../components/PasswordGate';
 import OptimizationObjectivesWidget from '../components/widgets/OptimizationObjectivesWidget';
 import RevenueComparisonWidget from '../components/widgets/RevenueComparisonWidget';
@@ -217,19 +218,23 @@ function CasePageContent({ project }: { project: Project }) {
 export default function CasePage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const [projects] = useState(() => loadProjects());
-
-  const project = projects.find(p => p.slug === slug);
+  const [project, setProject] = useState<Project | null | undefined>(undefined);
 
   useEffect(() => {
-    if (!project) navigate('/', { replace: true });
-  }, [project, navigate]);
+    if (!slug) return;
+    fetchProject(slug).then((p) => {
+      if (!p) navigate('/', { replace: true });
+      else setProject(p);
+    });
+  }, [slug, navigate]);
 
+  // undefined = loading, null = not found
+  if (project === undefined) return null;
   if (!project) return null;
 
   if (project.isProtected && project.password) {
     return (
-      <PasswordGate password={project.password}>
+      <PasswordGate password={project.password} sessionKey={`project_unlocked_${project.slug}`}>
         <CasePageContent project={project} />
       </PasswordGate>
     );

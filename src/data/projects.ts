@@ -25,39 +25,6 @@ export interface Project {
   sections: Section[]
 }
 
-// ─── Storage helpers ─────────────────────────────────────────────────────────
-
-const STORAGE_KEY = 'portfolio_projects_v1'
-
-export function loadProjects(): Project[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as Project[]
-  } catch {
-    // fall through to defaults
-  }
-  return defaultProjects
-}
-
-export function saveProjects(projects: Project[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
-}
-
-export function resetProjects(): void {
-  localStorage.removeItem(STORAGE_KEY)
-}
-
-export function exportProjectsJSON(projects: Project[]): void {
-  const content = `import type { Project } from './projects';\n\nexport const defaultProjects: Project[] = ${JSON.stringify(projects, null, 2)};\n`
-  const blob = new Blob([content], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'projects_export.ts'
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 // ─── Default data ─────────────────────────────────────────────────────────────
 
 export const defaultProjects: Project[] = [

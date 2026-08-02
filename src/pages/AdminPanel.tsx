@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Download, RotateCcw, X, Check, ChevronUp, ChevronDown, Lock, Eye, EyeOff, Copy } from 'lucide-react';
-import { loadProjects, saveProjects, resetProjects, exportProjectsJSON, defaultProjects, type Project, type Section } from '../data/projects';
+import {
+  Plus, Pencil, Trash2, Download, X, Check,
+  ChevronUp, ChevronDown, Lock, Eye, EyeOff, Copy, Loader2,
+} from 'lucide-react';
+import { defaultProjects, type Project, type Section } from '../data/projects';
+import {
+  fetchProjects, apiCreateProject, apiUpdateProject,
+  apiDeleteProject, apiSeedProjects,
+} from '../lib/api';
 
 // ─── Admin password ───────────────────────────────────────────────────────────
-const ADMIN_PASSWORD = 'admin1234';
-const ADMIN_SESSION_KEY = 'portfolio_admin_unlocked';
+const ADMIN_CLIENT_PASSWORD = 'admin1234';
+const ADMIN_SESSION_KEY = 'portfolio_admin_pw';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function newProject(): Project {
@@ -38,20 +45,9 @@ function newSection(type: Section['type']): Section {
 }
 
 // ─── Section editor ───────────────────────────────────────────────────────────
-function SectionEditor({
-  section,
-  idx,
-  total,
-  onChange,
-  onRemove,
-  onMove,
-}: {
-  section: Section;
-  idx: number;
-  total: number;
-  onChange: (s: Section) => void;
-  onRemove: () => void;
-  onMove: (dir: -1 | 1) => void;
+function SectionEditor({ section, idx, total, onChange, onRemove, onMove }: {
+  section: Section; idx: number; total: number;
+  onChange: (s: Section) => void; onRemove: () => void; onMove: (dir: -1 | 1) => void;
 }) {
   const inputCls = 'w-full border border-[#ddd] rounded-lg px-3 py-2 text-[14px] outline-none focus:border-[#111] bg-white';
   const labelCls = 'text-[12px] text-[#777] mb-1 block';
@@ -94,28 +90,17 @@ function SectionEditor({
           <label className={labelCls}>Paragraphs</label>
           {section.paragraphs.map((p, i) => (
             <div key={i} className="flex gap-2">
-              <textarea
-                className={`${inputCls} resize-none`}
-                rows={3}
-                value={p}
-                onChange={e => {
-                  const ps = [...section.paragraphs];
-                  ps[i] = e.target.value;
-                  onChange({ ...section, paragraphs: ps });
-                }}
+              <textarea className={`${inputCls} resize-none`} rows={3} value={p}
+                onChange={e => { const ps = [...section.paragraphs]; ps[i] = e.target.value; onChange({ ...section, paragraphs: ps }); }}
               />
-              <button onClick={() => {
-                const ps = section.paragraphs.filter((_, j) => j !== i);
-                onChange({ ...section, paragraphs: ps });
-              }} className="text-red-400 hover:text-red-600 shrink-0 self-start pt-2">
+              <button onClick={() => onChange({ ...section, paragraphs: section.paragraphs.filter((_, j) => j !== i) })}
+                className="text-red-400 hover:text-red-600 shrink-0 self-start pt-2">
                 <X size={14} />
               </button>
             </div>
           ))}
-          <button
-            onClick={() => onChange({ ...section, paragraphs: [...section.paragraphs, ''] })}
-            className="text-[13px] text-[#999] hover:text-[#111] text-left transition-colors"
-          >
+          <button onClick={() => onChange({ ...section, paragraphs: [...section.paragraphs, ''] })}
+            className="text-[13px] text-[#999] hover:text-[#111] text-left transition-colors">
             + Add paragraph
           </button>
         </div>
@@ -175,10 +160,8 @@ function SectionEditor({
             </div>
           </div>
         ))}
-        <button
-          onClick={() => onChange({ ...section, images: [...section.images, { src: '', alt: '', bg: '#f0f0f0' }] })}
-          className="text-[13px] text-[#999] hover:text-[#111] text-left transition-colors"
-        >
+        <button onClick={() => onChange({ ...section, images: [...section.images, { src: '', alt: '', bg: '#f0f0f0' }] })}
+          className="text-[13px] text-[#999] hover:text-[#111] text-left transition-colors">
           + Add image
         </button>
       </div>
@@ -201,7 +184,8 @@ function SectionEditor({
             </button>
           </div>
         ))}
-        <button onClick={() => onChange({ ...section, items: [...section.items, ''] })} className="text-[13px] text-[#999] hover:text-[#111] text-left transition-colors">
+        <button onClick={() => onChange({ ...section, items: [...section.items, ''] })}
+          className="text-[13px] text-[#999] hover:text-[#111] text-left transition-colors">
           + Add item
         </button>
       </div>
@@ -212,54 +196,37 @@ function SectionEditor({
 }
 
 // ─── Project Editor ────────────────────────────────────────────────────────────
-function ProjectEditor({ project, onSave, onCancel }: {
-  project: Project;
-  onSave: (p: Project) => void;
-  onCancel: () => void;
+function ProjectEditor({ project, onSave, onCancel, saving }: {
+  project: Project; onSave: (p: Project) => void; onCancel: () => void; saving: boolean;
 }) {
   const [draft, setDraft] = useState<Project>(project);
   const inputCls = 'w-full border border-[#ddd] rounded-lg px-3 py-2 text-[14px] outline-none focus:border-[#111] bg-white';
   const labelCls = 'text-[12px] text-[#777] mb-1 block';
-
   const set = (partial: Partial<Project>) => setDraft(d => ({ ...d, ...partial }));
 
-  const addSection = (type: Section['type']) => {
-    setDraft(d => ({ ...d, sections: [...d.sections, newSection(type)] }));
-  };
-
-  const updateSection = (i: number, s: Section) => {
-    setDraft(d => { const ss = [...d.sections]; ss[i] = s; return { ...d, sections: ss }; });
-  };
-
-  const removeSection = (i: number) => {
-    setDraft(d => ({ ...d, sections: d.sections.filter((_, j) => j !== i) }));
-  };
-
-  const moveSection = (i: number, dir: -1 | 1) => {
-    setDraft(d => {
-      const ss = [...d.sections];
-      const j = i + dir;
-      if (j < 0 || j >= ss.length) return d;
-      [ss[i], ss[j]] = [ss[j], ss[i]];
-      return { ...d, sections: ss };
-    });
-  };
+  const addSection = (type: Section['type']) => setDraft(d => ({ ...d, sections: [...d.sections, newSection(type)] }));
+  const updateSection = (i: number, s: Section) => setDraft(d => { const ss = [...d.sections]; ss[i] = s; return { ...d, sections: ss }; });
+  const removeSection = (i: number) => setDraft(d => ({ ...d, sections: d.sections.filter((_, j) => j !== i) }));
+  const moveSection = (i: number, dir: -1 | 1) => setDraft(d => {
+    const ss = [...d.sections]; const j = i + dir;
+    if (j < 0 || j >= ss.length) return d;
+    [ss[i], ss[j]] = [ss[j], ss[i]];
+    return { ...d, sections: ss };
+  });
 
   const sectionTypes: Section['type'][] = ['text', 'image-full', 'image-grid', 'deliverables', 'promotool-widgets', 'uikit'];
 
   return (
     <div className="fixed inset-0 bg-[#fafafa] z-50 overflow-y-auto">
       <div className="max-w-[720px] mx-auto px-6 py-10">
-        {/* Top bar */}
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-[20px] font-semibold text-[#111]">{draft.title || 'New Project'}</h2>
           <div className="flex items-center gap-3">
-            <button onClick={onCancel} className="px-4 py-2 text-[14px] text-[#777] hover:text-[#111] transition-colors">Cancel</button>
-            <button
-              onClick={() => onSave(draft)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#111] text-white text-[14px] rounded-lg hover:bg-[#333] transition-colors"
-            >
-              <Check size={14} /> Save
+            <button onClick={onCancel} disabled={saving} className="px-4 py-2 text-[14px] text-[#777] hover:text-[#111] transition-colors disabled:opacity-50">Cancel</button>
+            <button onClick={() => onSave(draft)} disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-[#111] text-white text-[14px] rounded-lg hover:bg-[#333] transition-colors disabled:opacity-60">
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
         </div>
@@ -274,7 +241,8 @@ function ProjectEditor({ project, onSave, onCancel }: {
             </div>
             <div>
               <label className={labelCls}>Slug (URL path)</label>
-              <input className={inputCls} value={draft.slug} placeholder="e.g. my-project" onChange={e => set({ slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} />
+              <input className={inputCls} value={draft.slug} placeholder="e.g. my-project"
+                onChange={e => set({ slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} />
             </div>
             <div>
               <label className={labelCls}>Year</label>
@@ -290,7 +258,8 @@ function ProjectEditor({ project, onSave, onCancel }: {
             </div>
             <div className="col-span-2">
               <label className={labelCls}>Description (shown on home card)</label>
-              <textarea className={`${inputCls} resize-none`} rows={3} value={draft.description} onChange={e => set({ description: e.target.value })} />
+              <textarea className={`${inputCls} resize-none`} rows={3} value={draft.description}
+                onChange={e => set({ description: e.target.value })} />
             </div>
             <div className="col-span-2">
               <label className={labelCls}>Cover image path (e.g. /portfolio-1.png)</label>
@@ -329,14 +298,12 @@ function ProjectEditor({ project, onSave, onCancel }: {
           </div>
         </div>
 
-        {/* Password protection */}
+        {/* Password */}
         <div className="bg-white border border-[#eee] rounded-xl p-5 flex flex-col gap-4 mb-6">
           <h3 className="text-[13px] font-medium text-[#444] uppercase tracking-wide">Access</h3>
           <label className="flex items-center gap-3 cursor-pointer">
-            <div
-              onClick={() => set({ isProtected: !draft.isProtected })}
-              className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 cursor-pointer ${draft.isProtected ? 'bg-[#111]' : 'bg-[#ccc]'}`}
-            >
+            <div onClick={() => set({ isProtected: !draft.isProtected })}
+              className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 cursor-pointer ${draft.isProtected ? 'bg-[#111]' : 'bg-[#ccc]'}`}>
               <div className={`w-4 h-4 rounded-full bg-white transition-transform ${draft.isProtected ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
             <span className="text-[14px] text-[#444]">Password protected</span>
@@ -352,28 +319,15 @@ function ProjectEditor({ project, onSave, onCancel }: {
         {/* Sections */}
         <div className="flex flex-col gap-4 mb-6">
           <h3 className="text-[13px] font-medium text-[#444] uppercase tracking-wide">Sections</h3>
-          {draft.sections.length === 0 && (
-            <p className="text-[14px] text-[#999]">No sections yet. Add one below.</p>
-          )}
+          {draft.sections.length === 0 && <p className="text-[14px] text-[#999]">No sections yet. Add one below.</p>}
           {draft.sections.map((s, i) => (
-            <SectionEditor
-              key={i}
-              section={s}
-              idx={i}
-              total={draft.sections.length}
-              onChange={ns => updateSection(i, ns)}
-              onRemove={() => removeSection(i)}
-              onMove={dir => moveSection(i, dir)}
-            />
+            <SectionEditor key={i} section={s} idx={i} total={draft.sections.length}
+              onChange={ns => updateSection(i, ns)} onRemove={() => removeSection(i)} onMove={dir => moveSection(i, dir)} />
           ))}
-          {/* Add section buttons */}
           <div className="flex flex-wrap gap-2">
             {sectionTypes.map(t => (
-              <button
-                key={t}
-                onClick={() => addSection(t)}
-                className="px-3 py-1.5 border border-[#ddd] rounded-lg text-[13px] text-[#555] hover:border-[#111] hover:text-[#111] transition-colors"
-              >
+              <button key={t} onClick={() => addSection(t)}
+                className="px-3 py-1.5 border border-[#ddd] rounded-lg text-[13px] text-[#555] hover:border-[#111] hover:text-[#111] transition-colors">
                 + {t}
               </button>
             ))}
@@ -384,17 +338,17 @@ function ProjectEditor({ project, onSave, onCancel }: {
   );
 }
 
-// ─── Admin login screen ────────────────────────────────────────────────────────
-function AdminLogin({ onUnlock }: { onUnlock: () => void }) {
+// ─── Admin login ──────────────────────────────────────────────────────────────
+function AdminLogin({ onUnlock }: { onUnlock: (pw: string) => void }) {
   const [input, setInput] = useState('');
   const [show, setShow] = useState(false);
   const [error, setError] = useState(false);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input === ADMIN_PASSWORD) {
-      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
-      onUnlock();
+    if (input === ADMIN_CLIENT_PASSWORD) {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, input);
+      onUnlock(input);
     } else {
       setError(true);
       setInput('');
@@ -419,7 +373,8 @@ function AdminLogin({ onUnlock }: { onUnlock: () => void }) {
         </div>
         <form onSubmit={submit} className="w-full flex flex-col gap-3">
           <div className="relative">
-            <input type={show ? 'text' : 'password'} value={input} onChange={e => { setInput(e.target.value); setError(false); }} className={inputCls} placeholder="Admin password" autoFocus />
+            <input type={show ? 'text' : 'password'} value={input} onChange={e => { setInput(e.target.value); setError(false); }}
+              className={inputCls} placeholder="Admin password" autoFocus />
             <button type="button" onClick={() => setShow(!show)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#aaa] hover:text-[#555]">
               {show ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -436,57 +391,101 @@ function AdminLogin({ onUnlock }: { onUnlock: () => void }) {
 
 // ─── Main Admin Panel ─────────────────────────────────────────────────────────
 export default function AdminPanel() {
-  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true');
+  const [adminPw, setAdminPw] = useState<string | null>(() => sessionStorage.getItem(ADMIN_SESSION_KEY));
   const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [isNew, setIsNew] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [seeding, setSeeding] = useState(false);
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchProjects();
+      setProjects(data);
+    } catch (e) {
+      showToast('Failed to load projects', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (unlocked) setProjects(loadProjects());
-  }, [unlocked]);
+    if (adminPw) reload();
+  }, [adminPw]);
 
-  const persist = (updated: Project[]) => {
-    setProjects(updated);
-    saveProjects(updated);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-
-  const handleSave = (p: Project) => {
-    let updated: Project[];
-    if (isNew) {
-      updated = [...projects, p];
-    } else {
-      updated = projects.map(x => x.slug === editing?.slug ? p : x);
+  const handleSave = async (p: Project) => {
+    if (!adminPw) return;
+    setSaving(true);
+    try {
+      if (isNew) {
+        await apiCreateProject(p, adminPw);
+      } else {
+        await apiUpdateProject(editing!.slug, p, adminPw);
+      }
+      await reload();
+      setEditing(null);
+      setIsNew(false);
+      showToast('Project saved ✓');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'Save failed', 'error');
+    } finally {
+      setSaving(false);
     }
-    persist(updated);
-    setEditing(null);
-    setIsNew(false);
   };
 
-  const handleDelete = (slug: string) => {
-    if (!confirm(`Delete project "${slug}"? This cannot be undone.`)) return;
-    persist(projects.filter(p => p.slug !== slug));
+  const handleDelete = async (slug: string) => {
+    if (!adminPw) return;
+    if (!confirm(`Delete "${slug}"? This cannot be undone.`)) return;
+    try {
+      await apiDeleteProject(slug, adminPw);
+      await reload();
+      showToast('Project deleted');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'Delete failed', 'error');
+    }
   };
 
-  const handleDuplicate = (projectToCopy: Project) => {
+  const handleDuplicate = async (projectToCopy: Project) => {
+    if (!adminPw) return;
     const duplicated: Project = {
       ...projectToCopy,
       slug: `${projectToCopy.slug}-copy`,
       title: `${projectToCopy.title} (Copy)`,
-      sections: JSON.parse(JSON.stringify(projectToCopy.sections)), // Deep copy sections
+      sections: JSON.parse(JSON.stringify(projectToCopy.sections)),
     };
-    persist([...projects, duplicated]);
+    try {
+      await apiCreateProject(duplicated, adminPw);
+      await reload();
+      showToast('Project duplicated ✓');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'Duplicate failed', 'error');
+    }
   };
 
-  const handleReset = () => {
-    if (!confirm('Reset to defaults? All your changes will be lost.')) return;
-    resetProjects();
-    setProjects(defaultProjects);
+  const handleSeed = async () => {
+    if (!adminPw) return;
+    if (!confirm('This will overwrite the database with the default projects. Continue?')) return;
+    setSeeding(true);
+    try {
+      await apiSeedProjects(defaultProjects, adminPw);
+      await reload();
+      showToast('Database seeded ✓');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'Seed failed', 'error');
+    } finally {
+      setSeeding(false);
+    }
   };
 
-  if (!unlocked) return <AdminLogin onUnlock={() => setUnlocked(true)} />;
+  if (!adminPw) return <AdminLogin onUnlock={setAdminPw} />;
 
   if (editing) {
     return (
@@ -494,12 +493,21 @@ export default function AdminPanel() {
         project={editing}
         onSave={handleSave}
         onCancel={() => { setEditing(null); setIsNew(false); }}
+        saving={saving}
       />
     );
   }
 
   return (
     <div className="min-h-screen bg-[#fafafa] font-sans text-[#111]">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-2.5 rounded-xl text-[14px] font-medium shadow-lg transition-all
+          ${toast.type === 'success' ? 'bg-[#111] text-white' : 'bg-red-500 text-white'}`}>
+          {toast.msg}
+        </div>
+      )}
+
       <div className="max-w-[720px] mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -508,56 +516,73 @@ export default function AdminPanel() {
             <h1 className="text-[24px] font-semibold mt-1">Portfolio Admin</h1>
           </div>
           <div className="flex items-center gap-2">
-            {saved && <span className="text-[13px] text-green-600">Saved ✓</span>}
-            <button
-              onClick={() => exportProjectsJSON(projects)}
-              className="flex items-center gap-1.5 px-3 py-2 border border-[#ddd] rounded-lg text-[13px] text-[#555] hover:border-[#111] hover:text-[#111] transition-colors"
-            >
-              <Download size={13} /> Export JSON
-            </button>
-            <button
-              onClick={handleReset}
-              className="flex items-center gap-1.5 px-3 py-2 border border-[#ddd] rounded-lg text-[13px] text-[#555] hover:border-red-400 hover:text-red-500 transition-colors"
-            >
-              <RotateCcw size={13} /> Reset
+            <button onClick={reload} disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-2 border border-[#ddd] rounded-lg text-[13px] text-[#555] hover:border-[#111] hover:text-[#111] transition-colors disabled:opacity-50">
+              {loading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+              {loading ? 'Loading…' : 'Refresh'}
             </button>
           </div>
         </div>
 
+        {/* DB status */}
+        {!loading && projects.length === 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center justify-between">
+            <div>
+              <p className="text-[14px] font-medium text-amber-800">Database is empty</p>
+              <p className="text-[13px] text-amber-600">Seed it with the default projects to get started.</p>
+            </div>
+            <button onClick={handleSeed} disabled={seeding}
+              className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white text-[13px] rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50">
+              {seeding ? <Loader2 size={13} className="animate-spin" /> : null}
+              {seeding ? 'Seeding…' : 'Seed Database'}
+            </button>
+          </div>
+        )}
+
         {/* Project list */}
         <div className="flex flex-col gap-3 mb-6">
-          {projects.map((project) => (
-            <div key={project.slug} className="flex items-center justify-between bg-white border border-[#eee] rounded-xl px-4 py-3.5">
-              <div className="flex items-center gap-3">
-                {project.coverImage && (
-                  <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0" style={{ background: project.coverBg }}>
-                    <img src={project.coverImage} className="w-full h-full object-cover" />
+          {loading && projects.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={20} className="animate-spin text-[#999]" />
+            </div>
+          ) : (
+            projects.map((project) => (
+              <div key={project.slug} className="flex items-center justify-between bg-white border border-[#eee] rounded-xl px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  {project.coverImage && (
+                    <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0" style={{ background: project.coverBg }}>
+                      <img src={project.coverImage} className="w-full h-full object-cover" alt="" />
+                    </div>
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-[15px]">{project.title}</span>
+                      {project.isProtected && <Lock size={11} className="text-[#aaa]" />}
+                    </div>
+                    <span className="text-[13px] text-[#999]">/{project.slug} · {project.company}</span>
                   </div>
-                )}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-[15px]">{project.title}</span>
-                    {project.isProtected && <Lock size={11} className="text-[#aaa]" />}
-                  </div>
-                  <span className="text-[13px] text-[#999]">/{project.slug} · {project.company}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <a href={`/${project.slug}`} target="_blank" rel="noopener noreferrer" title="Preview"
+                    className="p-2 text-[#aaa] hover:text-[#111] transition-colors">
+                    <Eye size={15} />
+                  </a>
+                  <button onClick={() => { setEditing(project); setIsNew(false); }} title="Edit"
+                    className="p-2 text-[#aaa] hover:text-[#111] transition-colors">
+                    <Pencil size={15} />
+                  </button>
+                  <button onClick={() => handleDuplicate(project)} title="Duplicate"
+                    className="p-2 text-[#aaa] hover:text-[#111] transition-colors">
+                    <Copy size={15} />
+                  </button>
+                  <button onClick={() => handleDelete(project.slug)} title="Delete"
+                    className="p-2 text-[#aaa] hover:text-red-500 transition-colors">
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <a href={`/${project.slug}`} target="_blank" rel="noopener noreferrer" className="p-2 text-[#aaa] hover:text-[#111] transition-colors">
-                  <Eye size={15} />
-                </a>
-                <button onClick={() => { setEditing(project); setIsNew(false); }} className="p-2 text-[#aaa] hover:text-[#111] transition-colors" title="Edit">
-                  <Pencil size={15} />
-                </button>
-                <button onClick={() => handleDuplicate(project)} className="p-2 text-[#aaa] hover:text-[#111] transition-colors" title="Duplicate">
-                  <Copy size={15} />
-                </button>
-                <button onClick={() => handleDelete(project.slug)} className="p-2 text-[#aaa] hover:text-red-500 transition-colors" title="Delete">
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         <button
@@ -568,7 +593,7 @@ export default function AdminPanel() {
         </button>
 
         <p className="text-[12px] text-[#bbb] text-center mt-8">
-          Changes are saved in browser storage. Use Export JSON to make changes permanent.
+          Changes are saved directly to the database and visible to everyone instantly.
         </p>
       </div>
     </div>

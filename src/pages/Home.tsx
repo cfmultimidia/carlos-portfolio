@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import { loadProjects, type Project } from '../data/projects';
+import { fetchProjects } from '../lib/api';
+import type { Project } from '../data/projects';
 
 function ProjectCard({ project, index }: { project: Project; index: number }) {
   const isEven = index % 2 === 0;
@@ -69,7 +70,7 @@ export default function Home() {
 
   useEffect(() => {
     document.title = 'Carlos Filipe — UX/UI Designer';
-    setProjects(loadProjects());
+    fetchProjects().then(setProjects);
   }, []);
 
   return (
