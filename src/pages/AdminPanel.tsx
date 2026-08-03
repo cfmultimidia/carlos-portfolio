@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Plus, Pencil, Trash2, Download, X, Check,
-  ChevronUp, ChevronDown, Lock, Eye, EyeOff, Copy, Loader2,
+  ChevronUp, ChevronDown, Lock, Eye, EyeOff, Copy, Loader2, Upload,
 } from 'lucide-react';
 import { defaultProjects, type Project, type Section } from '../data/projects';
 import {
   fetchProjects, apiCreateProject, apiUpdateProject,
-  apiDeleteProject, apiSeedProjects,
+  apiDeleteProject, apiSeedProjects, apiUploadImage,
 } from '../lib/api';
 
 // ─── Admin password ───────────────────────────────────────────────────────────
@@ -44,9 +44,46 @@ function newSection(type: Section['type']): Section {
   }
 }
 
+// ─── Image Upload Component ───────────────────────────────────────────────────
+function ImageUpload({ value, onChange, adminPw }: { value: string; onChange: (v: string) => void; adminPw: string }) {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await apiUploadImage(file, adminPw);
+      onChange(url);
+    } catch (err: any) {
+      alert(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const inputCls = 'flex-1 border border-[#ddd] rounded-l-lg px-3 py-2 text-[14px] outline-none focus:border-[#111] bg-white';
+  
+  return (
+    <div className="flex w-full">
+      <input className={inputCls} value={value} onChange={e => onChange(e.target.value)} placeholder="Path or URL (e.g. /image.png)" />
+      <button 
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="px-3 bg-[#f5f5f5] border border-l-0 border-[#ddd] rounded-r-lg hover:bg-[#e0e0e0] transition-colors flex items-center justify-center disabled:opacity-50 min-w-[44px]"
+      >
+        {uploading ? <Loader2 size={16} className="animate-spin text-[#555]" /> : <Upload size={16} className="text-[#555]" />}
+      </button>
+      <input type="file" ref={fileInputRef} onChange={handleUpload} accept="image/*" className="hidden" />
+    </div>
+  );
+}
+
 // ─── Section editor ───────────────────────────────────────────────────────────
-function SectionEditor({ section, idx, total, onChange, onRemove, onMove }: {
-  section: Section; idx: number; total: number;
+function SectionEditor({ section, idx, total, adminPw, onChange, onRemove, onMove }: {
+  section: Section; idx: number; total: number; adminPw: string;
   onChange: (s: Section) => void; onRemove: () => void; onMove: (dir: -1 | 1) => void;
 }) {
   const inputCls = 'w-full border border-[#ddd] rounded-lg px-3 py-2 text-[14px] outline-none focus:border-[#111] bg-white';
@@ -112,8 +149,8 @@ function SectionEditor({ section, idx, total, onChange, onRemove, onMove }: {
     return (
       <div className="border border-[#eee] rounded-xl p-4 bg-white flex flex-col gap-3">
         {header}
-        <div><label className={labelCls}>Image path (e.g. /premmia/capa.png)</label>
-          <input className={inputCls} value={section.src} onChange={e => onChange({ ...section, src: e.target.value })} />
+        <div><label className={labelCls}>Image</label>
+          <ImageUpload value={section.src} onChange={v => onChange({ ...section, src: v })} adminPw={adminPw} />
         </div>
         <div><label className={labelCls}>Alt text</label>
           <input className={inputCls} value={section.alt} onChange={e => onChange({ ...section, alt: e.target.value })} />
@@ -143,10 +180,10 @@ function SectionEditor({ section, idx, total, onChange, onRemove, onMove }: {
                 </button>
               )}
             </div>
-            <input className={inputCls} placeholder="Path (e.g. /premmia/img.webp)" value={img.src} onChange={e => {
-              const imgs = [...section.images]; imgs[i] = { ...imgs[i], src: e.target.value };
+            <ImageUpload value={img.src} onChange={v => {
+              const imgs = [...section.images]; imgs[i] = { ...imgs[i], src: v };
               onChange({ ...section, images: imgs });
-            }} />
+            }} adminPw={adminPw} />
             <input className={inputCls} placeholder="Alt text" value={img.alt} onChange={e => {
               const imgs = [...section.images]; imgs[i] = { ...imgs[i], alt: e.target.value };
               onChange({ ...section, images: imgs });
@@ -196,8 +233,8 @@ function SectionEditor({ section, idx, total, onChange, onRemove, onMove }: {
 }
 
 // ─── Project Editor ────────────────────────────────────────────────────────────
-function ProjectEditor({ project, onSave, onCancel, saving }: {
-  project: Project; onSave: (p: Project) => void; onCancel: () => void; saving: boolean;
+function ProjectEditor({ project, adminPw, onSave, onCancel, saving }: {
+  project: Project; adminPw: string; onSave: (p: Project) => void; onCancel: () => void; saving: boolean;
 }) {
   const [draft, setDraft] = useState<Project>(project);
   const inputCls = 'w-full border border-[#ddd] rounded-lg px-3 py-2 text-[14px] outline-none focus:border-[#111] bg-white';
@@ -262,8 +299,8 @@ function ProjectEditor({ project, onSave, onCancel, saving }: {
                 onChange={e => set({ description: e.target.value })} />
             </div>
             <div className="col-span-2">
-              <label className={labelCls}>Cover image path (e.g. /portfolio-1.png)</label>
-              <input className={inputCls} value={draft.coverImage} onChange={e => set({ coverImage: e.target.value })} />
+              <label className={labelCls}>Cover image</label>
+              <ImageUpload value={draft.coverImage} onChange={v => set({ coverImage: v })} adminPw={adminPw} />
               {draft.coverImage && <img src={draft.coverImage} className="w-full h-24 object-cover rounded-lg mt-2" />}
             </div>
             <div>
@@ -321,7 +358,7 @@ function ProjectEditor({ project, onSave, onCancel, saving }: {
           <h3 className="text-[13px] font-medium text-[#444] uppercase tracking-wide">Sections</h3>
           {draft.sections.length === 0 && <p className="text-[14px] text-[#999]">No sections yet. Add one below.</p>}
           {draft.sections.map((s, i) => (
-            <SectionEditor key={i} section={s} idx={i} total={draft.sections.length}
+            <SectionEditor key={i} section={s} idx={i} total={draft.sections.length} adminPw={adminPw}
               onChange={ns => updateSection(i, ns)} onRemove={() => removeSection(i)} onMove={dir => moveSection(i, dir)} />
           ))}
           <div className="flex flex-wrap gap-2">
@@ -491,6 +528,7 @@ export default function AdminPanel() {
     return (
       <ProjectEditor
         project={editing}
+        adminPw={adminPw}
         onSave={handleSave}
         onCancel={() => { setEditing(null); setIsNew(false); }}
         saving={saving}

@@ -71,6 +71,39 @@ export async function apiDeleteProject(slug: string, adminPassword: string) {
   return adminRequest('DELETE', `/api/projects/${slug}`, adminPassword);
 }
 
+// ─── Image Upload ─────────────────────────────────────────────────────────────
+
+export async function apiUploadImage(file: File, adminPassword: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            [ADMIN_HEADER]: adminPassword,
+          },
+          body: JSON.stringify({ filename: file.name, base64 }),
+        });
+        
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `Error ${res.status}`);
+        }
+        
+        const data = await res.json();
+        resolve(data.url);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.onerror = (error) => reject(error);
+  });
+}
+
 export async function apiSeedProjects(projects: Project[], adminPassword: string) {
   return adminRequest('POST', '/api/setup', adminPassword, { projects });
 }
