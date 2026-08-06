@@ -1,17 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Plus, Pencil, Trash2, Download, X, Check,
-  ChevronUp, ChevronDown, Lock, Eye, EyeOff, Copy, Loader2, Upload,
+  ChevronUp, ChevronDown, Lock, Eye, Copy, Loader2, Upload,
 } from 'lucide-react';
 import { defaultProjects, type Project, type Section } from '../data/projects';
 import {
-  fetchProjects, apiCreateProject, apiUpdateProject,
+  apiCreateProject, apiUpdateProject,
   apiDeleteProject, apiSeedProjects, apiUploadImage,
 } from '../lib/api';
-
-// ─── Admin password ───────────────────────────────────────────────────────────
-const ADMIN_CLIENT_PASSWORD = 'admin1234';
-const ADMIN_SESSION_KEY = 'portfolio_admin_pw';
+import { useAuth } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function newProject(): Project {
@@ -375,60 +373,14 @@ function ProjectEditor({ project, adminPw, onSave, onCancel, saving }: {
   );
 }
 
-// ─── Admin login ──────────────────────────────────────────────────────────────
-function AdminLogin({ onUnlock }: { onUnlock: (pw: string) => void }) {
-  const [input, setInput] = useState('');
-  const [show, setShow] = useState(false);
-  const [error, setError] = useState(false);
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (input === ADMIN_CLIENT_PASSWORD) {
-      sessionStorage.setItem(ADMIN_SESSION_KEY, input);
-      onUnlock(input);
-    } else {
-      setError(true);
-      setInput('');
-      setTimeout(() => setError(false), 2000);
-    }
-  };
-
-  const inputCls = `w-full px-4 py-3.5 pr-12 rounded-xl border text-[16px] outline-none transition-all bg-white ${error ? 'border-red-400 text-red-500' : 'border-[#ddd] focus:border-[#111]'}`;
-
-  return (
-    <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center px-6">
-      <div className="absolute top-6 left-6">
-        <a href="/" className="text-[16px] text-[#737882] hover:text-[#111] transition-colors">← back</a>
-      </div>
-      <div className="w-full max-w-[360px] flex flex-col items-center gap-8">
-        <div className="w-14 h-14 rounded-2xl bg-[#111] flex items-center justify-center">
-          <Lock size={22} className="text-white" />
-        </div>
-        <div className="text-center">
-          <h1 className="text-[22px] font-semibold text-[#111]">Admin Panel</h1>
-          <p className="text-[15px] text-[#737882] mt-1">Enter your admin password</p>
-        </div>
-        <form onSubmit={submit} className="w-full flex flex-col gap-3">
-          <div className="relative">
-            <input type={show ? 'text' : 'password'} value={input} onChange={e => { setInput(e.target.value); setError(false); }}
-              className={inputCls} placeholder="Admin password" autoFocus />
-            <button type="button" onClick={() => setShow(!show)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#aaa] hover:text-[#555]">
-              {show ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
-          </div>
-          {error && <p className="text-[14px] text-red-500 text-center">Incorrect password.</p>}
-          <button type="submit" className="w-full py-3.5 bg-[#111] text-white rounded-xl text-[16px] font-medium hover:bg-[#333] transition-colors">
-            Enter
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Admin Panel ─────────────────────────────────────────────────────────
+// Now uses Supabase session token instead of hardcoded password.
+// AuthGuard in App.tsx ensures user is logged in before reaching this page.
 export default function AdminPanel() {
-  const [adminPw, setAdminPw] = useState<string | null>(() => sessionStorage.getItem(ADMIN_SESSION_KEY));
+  const { user, profile } = useAuth();
+  // Use the Supabase session access token as the admin password for API calls
+  const [adminPw, setAdminPw] = useState<string>('');
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -445,8 +397,14 @@ export default function AdminPanel() {
   const reload = async () => {
     setLoading(true);
     try {
-      const data = await fetchProjects();
-      setProjects(data);
+      // Load only projects belonging to this user
+      if (!user) return;
+      const { data } = await supabase
+        .from('projects')
+        .select('data, sort_order')
+        .eq('user_id', user.id)
+        .order('sort_order', { ascending: true });
+      setProjects((data ?? []).map(r => r.data as Project));
     } catch (e) {
       showToast('Failed to load projects', 'error');
     } finally {
@@ -455,8 +413,13 @@ export default function AdminPanel() {
   };
 
   useEffect(() => {
-    if (adminPw) reload();
-  }, [adminPw]);
+    // Get the session token to use as admin password for API calls
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.access_token) setAdminPw(session.access_token);
+    });
+    if (user) reload();
+  }, [user]);
+
 
   const handleSave = async (p: Project) => {
     if (!adminPw) return;
@@ -522,7 +485,11 @@ export default function AdminPanel() {
     }
   };
 
-  if (!adminPw) return <AdminLogin onUnlock={setAdminPw} />;
+  if (!adminPw) return (
+    <div className="min-h-screen bg-[#fafafa] flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-[#111] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
   if (editing) {
     return (
@@ -550,8 +517,8 @@ export default function AdminPanel() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <a href="/" className="text-[14px] text-[#999] hover:text-[#111] transition-colors">← portfolio</a>
-            <h1 className="text-[24px] font-semibold mt-1">Portfolio Admin</h1>
+            <a href="/dashboard" className="text-[14px] text-[#999] hover:text-[#111] transition-colors">← dashboard</a>
+            <h1 className="text-[24px] font-semibold mt-1">{profile?.display_name ?? 'Portfolio Admin'}</h1>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={reload} disabled={loading}

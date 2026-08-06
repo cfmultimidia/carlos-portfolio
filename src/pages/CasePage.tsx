@@ -215,21 +215,51 @@ function CasePageContent({ project }: { project: Project }) {
 
 // ─── Route wrapper (with optional password gate) ──────────────────────────────
 
-export default function CasePage() {
-  const { slug } = useParams<{ slug: string }>();
+export default function CasePage({ legacyMode: _legacyMode }: { legacyMode?: boolean }) {
+  const { slug, username } = useParams<{ slug: string; username: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null | undefined>(undefined);
 
   useEffect(() => {
     if (!slug) return;
-    fetchProject(slug).then((p) => {
-      if (!p) navigate('/', { replace: true });
-      else setProject(p);
-    });
-  }, [slug, navigate]);
+
+    if (username) {
+      // New route: /p/:username/:slug — fetch scoped to user
+      import('../lib/supabase').then(({ supabase }) => {
+        supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('username', username)
+          .single()
+          .then(({ data: prof }) => {
+            if (!prof) { navigate('/', { replace: true }); return; }
+            return supabase
+              .from('projects')
+              .select('data')
+              .eq('slug', slug)
+              .eq('user_id', prof.id)
+              .single()
+              .then(({ data }) => {
+                if (!data) navigate(`/p/${username}`, { replace: true });
+                else setProject(data.data as Project);
+              });
+          });
+      });
+    } else {
+      // Legacy route: /:slug — fetch any project with this slug (Carlos's portfolio)
+      fetchProject(slug).then((p) => {
+        if (!p) navigate('/', { replace: true });
+        else setProject(p);
+      });
+    }
+  }, [slug, username, navigate]);
 
   // undefined = loading, null = not found
-  if (project === undefined) return null;
+  if (project === undefined) return (
+    <div className="min-h-screen bg-[#fafafa] flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-[#111] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
   if (!project) return null;
 
   if (project.isProtected && project.password) {
@@ -242,3 +272,4 @@ export default function CasePage() {
 
   return <CasePageContent project={project} />;
 }
+
