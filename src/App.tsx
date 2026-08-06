@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './lib/auth';
 import AuthGuard from './components/AuthGuard';
 import Landing from './pages/Landing';
@@ -14,7 +14,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* Public routes */}
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<Navigate to="/p/carlos" replace />} />
+          <Route path="/landing" element={<Landing />} />
           <Route path="/login" element={<Login />} />
 
           {/* Public portfolio routes — /p/:username and /p/:username/:slug */}
